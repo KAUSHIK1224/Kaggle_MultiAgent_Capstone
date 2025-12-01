@@ -1,29 +1,25 @@
-import logging
-from typing import List
+from typing import Any, Dict
 from pydantic import BaseModel
+from .task_manager_base import TaskManagerBase
 
-class AgentTask(BaseModel):
-    id: str
-    agent_id: str
-    payload: dict
-    status: str = "created"
+class InvokeRequest(BaseModel):
+    query: str
+    sessionId: str
 
+class InvokeResponse(BaseModel):
+    status: str  # "input_required" | "error" | "completed"
+    message: str
 
-class AgentTaskManager:
+class AgentTaskManager(TaskManagerBase):
     def __init__(self):
-        self.tasks: List[AgentTask] = []
+        super().__init__()
 
-    def add_task(self, task: AgentTask):
-        self.tasks.append(task)
-        logging.info(f"Task added: {task.id}")
-
-    def get_pending(self, agent_id: str):
-        return [t for t in self.tasks if t.agent_id == agent_id and t.status == "created"]
-
-    def mark_completed(self, task_id: str):
-        for t in self.tasks:
-            if t.id == task_id:
-                t.status = "completed"
-                logging.info(f"Task completed: {task_id}")
-                return True
-        return False
+    def invoke(self, tool_name: str, payload: Dict[str, Any]) -> InvokeResponse:
+        tool = self.get(tool_name)
+        if not tool:
+            return InvokeResponse(status="error", message=f"Unknown tool: {tool_name}")
+        try:
+            msg = tool(**payload)
+            return InvokeResponse(status="completed", message=msg)
+        except Exception as e:
+            return InvokeResponse(status="error", message=f"{e}")
