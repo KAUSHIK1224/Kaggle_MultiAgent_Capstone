@@ -1,27 +1,29 @@
-import uuid
-from typing import Dict
-from .task_manager_base import Task, TaskResult
+import logging
+from typing import List
+from pydantic import BaseModel
+
+class AgentTask(BaseModel):
+    id: str
+    agent_id: str
+    payload: dict
+    status: str = "created"
 
 
 class AgentTaskManager:
     def __init__(self):
-        self.tasks: Dict[str, Task] = {}
-        self.results: Dict[str, TaskResult] = {}
+        self.tasks: List[AgentTask] = []
 
-    def create_task(self, task_type: str, payload) -> Task:
-        task_id = str(uuid.uuid4())
-        task = Task(task_id=task_id, task_type=task_type, payload=payload)
-        self.tasks[task_id] = task
-        return task
+    def add_task(self, task: AgentTask):
+        self.tasks.append(task)
+        logging.info(f"Task added: {task.id}")
 
-    def store_result(self, task_id: str, result, success=True, error_message=None):
-        task_result = TaskResult(
-            task_id=task_id,
-            result=result,
-            success=success,
-            error_message=error_message
-        )
-        self.results[task_id] = task_result
+    def get_pending(self, agent_id: str):
+        return [t for t in self.tasks if t.agent_id == agent_id and t.status == "created"]
 
-    def get_result(self, task_id: str) -> TaskResult | None:
-        return self.results.get(task_id)
+    def mark_completed(self, task_id: str):
+        for t in self.tasks:
+            if t.id == task_id:
+                t.status = "completed"
+                logging.info(f"Task completed: {task_id}")
+                return True
+        return False
