@@ -1,11 +1,9 @@
-from typing import List, Optional
+from typing import List
 from pydantic import BaseModel
 
 
 class AgentSkill:
     CREATE_ORDER = "CREATE_ORDER"
-    SEARCH = "SEARCH"
-    ANSWER = "ANSWER"
 
 
 class AgentCapabilities(BaseModel):
@@ -14,13 +12,9 @@ class AgentCapabilities(BaseModel):
     supportedOutputTypes: List[str]
 
 
-class AgentAuthentication(BaseModel):
-    api_key: str
-
-
 class AgentCard(BaseModel):
     id: str
     name: str
     description: str
     capabilities: AgentCapabilities
-    authentication: Optional[AgentAuthentication] = None
+    authentication: dict
