@@ -1,25 +1,21 @@
-from typing import Any, Dict
-from pydantic import BaseModel
-from .task_manager_base import TaskManagerBase
+import uuid
 
-class InvokeRequest(BaseModel):
-    query: str
-    sessionId: str
-
-class InvokeResponse(BaseModel):
-    status: str  # "input_required" | "error" | "completed"
-    message: str
-
-class AgentTaskManager(TaskManagerBase):
+class TaskManagerBase:
     def __init__(self):
-        super().__init__()
+        self.tasks = {}
 
-    def invoke(self, tool_name: str, payload: Dict[str, Any]) -> InvokeResponse:
-        tool = self.get(tool_name)
-        if not tool:
-            return InvokeResponse(status="error", message=f"Unknown tool: {tool_name}")
-        try:
-            msg = tool(**payload)
-            return InvokeResponse(status="completed", message=msg)
-        except Exception as e:
-            return InvokeResponse(status="error", message=f"{e}")
+    def create_task(self, payload):
+        task_id = str(uuid.uuid4())
+        self.tasks[task_id] = {
+            "status": "pending",
+            "payload": payload,
+            "result": None,
+        }
+        return {"task_id": task_id}
+
+    def update_task(self, task_id, result):
+        self.tasks[task_id]["result"] = result
+        self.tasks[task_id]["status"] = "completed"
+
+    def get_task(self, task_id):
+        return self.tasks.get(task_id, None)
