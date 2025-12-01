@@ -1,39 +1,24 @@
-from typing import Any, Dict
-from pydantic import BaseModel
+from typing import Dict, Any
 from .task_manager_base import TaskManagerBase
-import requests
-import json
-
-
-class InvokeResponse(BaseModel):
-    status: str
-    message: str
 
 
 class AgentTaskManager(TaskManagerBase):
-    def __init__(self, api_base="http://0.0.0.0:10001"):
-        super().__init__()
-        self.api_base = api_base
 
-    def run_task(self, agent_card, user_query, session_id):
-        # build payload
+    def __init__(self):
+        super().__init__()
+
+    def invoke(self, agent_id: str, user_query: str, session_id: str) -> Dict[str, Any]:
+
         payload = {
-            "query": user_query,
+            "agent_id": agent_id,
+            "user_query": user_query,
             "session_id": session_id
         }
 
-        # create task
+        # Create Task
         task = self.create_task(payload)
         task_id = task["task_id"]
 
-        # call server
-        url = f"{self.api_base}/task/{agent_card.id}/{task_id}"
-        headers = {"Authorization": f"Bearer {agent_card.authentication.api_key}"}
-
-        r = requests.post(url, json=payload, headers=headers)
-        result = r.json()
-
-        # update task
-        self.update_task(task_id, result)
-
+        # Execute Task
+        result = self.execute_task(task_id)
         return result
