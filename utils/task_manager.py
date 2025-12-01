@@ -1,21 +1,39 @@
-import uuid
+from typing import Any, Dict
+from pydantic import BaseModel
+from .task_manager_base import TaskManagerBase
+import requests
+import json
 
-class TaskManagerBase:
-    def __init__(self):
-        self.tasks = {}
 
-    def create_task(self, payload):
-        task_id = str(uuid.uuid4())
-        self.tasks[task_id] = {
-            "status": "pending",
-            "payload": payload,
-            "result": None,
+class InvokeResponse(BaseModel):
+    status: str
+    message: str
+
+
+class AgentTaskManager(TaskManagerBase):
+    def __init__(self, api_base="http://0.0.0.0:10001"):
+        super().__init__()
+        self.api_base = api_base
+
+    def run_task(self, agent_card, user_query, session_id):
+        # build payload
+        payload = {
+            "query": user_query,
+            "session_id": session_id
         }
-        return {"task_id": task_id}
 
-    def update_task(self, task_id, result):
-        self.tasks[task_id]["result"] = result
-        self.tasks[task_id]["status"] = "completed"
+        # create task
+        task = self.create_task(payload)
+        task_id = task["task_id"]
 
-    def get_task(self, task_id):
-        return self.tasks.get(task_id, None)
+        # call server
+        url = f"{self.api_base}/task/{agent_card.id}/{task_id}"
+        headers = {"Authorization": f"Bearer {agent_card.authentication.api_key}"}
+
+        r = requests.post(url, json=payload, headers=headers)
+        result = r.json()
+
+        # update task
+        self.update_task(task_id, result)
+
+        return result
