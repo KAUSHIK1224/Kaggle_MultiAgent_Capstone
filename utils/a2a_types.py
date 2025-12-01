@@ -11,6 +11,9 @@ class AgentSkill(str, Enum):
 
 class AgentCapabilities(BaseModel):
     skills: List[AgentSkill]
+    # additional capabilities required by ADK
+    supportedContentTypes: Optional[List[str]] = None
+    supportedOutputModes: Optional[List[str]] = None
 
 
 class AgentAuthentication(BaseModel):
