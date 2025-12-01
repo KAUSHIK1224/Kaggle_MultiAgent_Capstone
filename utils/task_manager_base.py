@@ -1,14 +1,21 @@
-from typing import Any, Dict, Callable, Optional
+import uuid
 
 class TaskManagerBase:
     def __init__(self):
-        self._tools: Dict[str, Callable[..., Any]] = {}
+        self.tasks = {}
 
-    def register(self, name: str, fn: Callable[..., Any]):
-        self._tools[name] = fn
+    def create_task(self, payload):
+        task_id = str(uuid.uuid4())
+        self.tasks[task_id] = {
+            "status": "pending",
+            "payload": payload,
+            "result": None,
+        }
+        return {"task_id": task_id}
 
-    def get(self, name: str) -> Optional[Callable[..., Any]]:
-        return self._tools.get(name)
+    def update_task(self, task_id, result):
+        self.tasks[task_id]["result"] = result
+        self.tasks[task_id]["status"] = "completed"
 
-    def list_tools(self):
-        return list(self._tools.keys())
+    def get_task(self, task_id):
+        return self.tasks.get(task_id, None)
