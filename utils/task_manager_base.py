@@ -1,21 +1,18 @@
-import uuid
+import requests
+
 
 class TaskManagerBase:
-    def __init__(self):
-        self.tasks = {}
+    def __init__(self, api_url="http://0.0.0.0:10001"):
+        self.api_url = api_url.rstrip("/")
 
-    def create_task(self, payload):
-        task_id = str(uuid.uuid4())
-        self.tasks[task_id] = {
-            "status": "pending",
-            "payload": payload,
-            "result": None,
-        }
-        return {"task_id": task_id}
+    def create_task(self, payload: dict):
+        url = f"{self.api_url}/task"
+        r = requests.post(url, json=payload)
+        r.raise_for_status()
+        return r.json()
 
-    def update_task(self, task_id, result):
-        self.tasks[task_id]["result"] = result
-        self.tasks[task_id]["status"] = "completed"
-
-    def get_task(self, task_id):
-        return self.tasks.get(task_id, None)
+    def execute_task(self, task_id: str):
+        url = f"{self.api_url}/task/{task_id}"
+        r = requests.get(url)
+        r.raise_for_status()
+        return r.json()
