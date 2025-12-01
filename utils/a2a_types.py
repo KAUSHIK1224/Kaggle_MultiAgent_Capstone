@@ -9,8 +9,11 @@ class AgentSkill(str, Enum):
 
 class AgentCapabilities(BaseModel):
     skills: List[AgentSkill]
+    # ADK often validates these; keep them present but optional
     supportedContentTypes: Optional[List[str]] = None
     supportedOutputModes: Optional[List[str]] = None
+    # This field was missing in your earlier run and caused a validation error
+    pushNotifications: bool = True
 
 class AgentAuthentication(BaseModel):
     api_key: str
