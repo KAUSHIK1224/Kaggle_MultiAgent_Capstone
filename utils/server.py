@@ -1,61 +1,77 @@
-from flask import Flask
-import logging
+# ------------------------------------------------------------
+# FIXED A2A SERVER IMPLEMENTATION
+# ------------------------------------------------------------
 
-class A2AServer:
-    def __init__(self, agent_card, task_manager, agent, notification_sender_auth,from fastapi import FastAPI
-from pydantic import BaseModel
-from typing import Optional
+from fastapi import FastAPI, Depends, HTTPException
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from starlette.responses import JSONResponse
 import uvicorn
 
-from .a2a_types import AgentCard, AgentCapabilities, AgentAuthentication, AgentSkill
-from .task_manager import AgentTaskManager, InvokeRequest, InvokeResponse
-
 class A2AServer:
-    def __init__(self, agent_card: AgentCard, task_manager: AgentTaskManager, notification_sender_auth_router):
-        self.app = FastAPI(title="A2A Agent Server")
+    """
+    A2A Server for hosting agent card and exposing
+    /agent, /task, /jwks.json endpoints.
+    """
+
+    def __init__(
+        self,
+        agent_card,
+        task_manager,
+        api_base,
+        notification_sender_auth,
+        host="0.0.0.0",
+        port=10001,
+        auth_username=None,
+        auth_password=None,
+    ):
         self.agent_card = agent_card
         self.task_manager = task_manager
-
-        # endpoints
-        @self.app.get("/")
-        async def root():
-            return {"status": "ok", "agent": self.agent_card.model_dump()}
-
-        # well-known/jwks.json comes from notification sender auth router
-        self.app.include_router(notification_sender_auth_router)
-
-        # A2A invoke endpoint (POST /invoke)
-        class InvokeBody(BaseModel):
-            query: str
-            sessionId: str
-
-        @self.app.post("/invoke", response_model=InvokeResponse)
-        async def invoke(body: InvokeBody):
-            # super-simple intent: if query contains "order" -> use create_burger_order
-            # else ask for confirmation
-            q = body.query.lower()
-            if any(w in q for w in ["order", "buy", "get", "cheeseburger", "burger"]):
-                # Parse a simple item name; real project should use a parser/LLM
-                payload = {"order_items": [{"name": "Classic Cheeseburger", "quantity": 1, "price": 85000}]}
-                return self.task_manager.invoke("create_burger_order", payload)
-            else:
-                return InvokeResponse(
-                    status="input_required",
-                    message="What would you like to order? (Classic, Double, Spicy Chicken, Spicy Cajun)"
-                )
-
-    def run(self, host: str = "0.0.0.0", port: int = 10001):
-        uvicorn.run(self.app, host=host, port=port, log_level="info")
-
-                 host="0.0.0.0", port=8080, auth_username="", auth_password=""):
-        self.app = Flask(__name__)
-        self.host = host
-        self.port = port
-        self.agent_card = agent_card
-        self.task_manager = task_manager
-        self.agent = agent
+        self.api_base = api_base
         self.notification_sender_auth = notification_sender_auth
 
+        self.host = host
+        self.port = port
+        self.auth_username = auth_username
+        self.auth_password = auth_password
+
+        self.app = FastAPI()
+        self.security = HTTPBasic()
+
+        # register endpoints
+        self._setup_routes()
+
+    # ---------------------------------------------------------
+    # BASIC AUTH
+    # ---------------------------------------------------------
+    def _verify_auth(self, creds: HTTPBasicCredentials = Depends(HTTPBasic())):
+        if self.auth_username is None:
+            return True  # no auth used
+
+        if creds.username == self.auth_username and creds.password == self.auth_password:
+            return True
+
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    # ---------------------------------------------------------
+    # ROUTES
+    # ---------------------------------------------------------
+    def _setup_routes(self):
+
+        @self.app.get("/jwks.json")
+        def jwks():
+            return self.notification_sender_auth.get_jwk()
+
+        @self.app.get("/agent")
+        def get_agent(_=Depends(self._verify_auth)):
+            return JSONResponse(self.agent_card.dict())
+
+        @self.app.post("/task")
+        async def post_task(request: dict, _=Depends(self._verify_auth)):
+            result = await self.task_manager.handle_task(request)
+            return JSONResponse(result)
+
+    # ---------------------------------------------------------
+    # START SERVER
+    # ---------------------------------------------------------
     def start(self):
-        logging.info(f"Starting A2A Server on {self.host}:{self.port}")
-        self.app.run(host=self.host, port=self.port)
+        uvicorn.run(self.app, host=self.host, port=self.port)
